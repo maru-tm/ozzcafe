@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Admin Panel</h1>
+
+        <!-- User Management -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3>User Management</h3>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTable">
+                        <!-- Rows will be dynamically populated here -->
+                    </tbody>
+                </table>
+                <div id="loading-spinner" class="text-center my-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Menu Management -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3>Menu Management</h3>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#menuModal">Add Menu Item</button>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Price</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="menuTable">
+                        <!-- Rows will be dynamically populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for changing user roles -->
+    <div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="roleModalLabel">Change User Role</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="roleForm">
+                        <input type="hidden" id="userId">
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Select Role</label>
+                            <select class="form-select" id="role" required>
+                                <option value="user">User</option>
+                                <option value="manager">Manager</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding/editing menu items -->
+    <div class="modal fade" id="menuModal" tabindex="-1" aria-labelledby="menuModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="menuModalLabel">Add/Edit Menu Item</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="menuForm">
+                        <input type="hidden" id="menuItemId">
+                        <div class="mb-3">
+                            <label for="menuName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="menuName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="menuPrice" class="form-label">Price</label>
+                            <input type="number" class="form-control" id="menuPrice" step="0.01" required>
+                        </div>
+
+                        <!-- Ingredients Section -->
+                        <div id="ingredientsSection">
+                            <!-- Dynamic ingredient fields will be added here -->
+                        </div>
+                        <button type="button" class="btn btn-success mb-3" id="addIngredient">Add Ingredient</button>
+
+                        <button type="submit" class="btn btn-primary w-100">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const menuTable = document.getElementById("menuTable");
+            const ingredientsSection = document.getElementById("ingredientsSection");
+            const addIngredientButton = document.getElementById("addIngredient");
+            const menuForm = document.getElementById("menuForm");
+            const userTable = document.getElementById("userTable");
+    
+            // Модальные окна
+            const roleModal = new bootstrap.Modal(document.getElementById("roleModal"));
+            const menuModal = new bootstrap.Modal(document.getElementById("menuModal"));
+    
+            // Функция для добавления поля ингредиента
+            function addIngredientField(value = "") {
+                const div = document.createElement("div");
+                div.classList.add("d-flex", "mb-2");
+    
+                const input = document.createElement("input");
+                input.type = "text";
+                input.className = "form-control me-2";
+                input.placeholder = "Ingredient";
+                input.value = value;
+    
+                const removeButton = document.createElement("button");
+                removeButton.type = "button";
+                removeButton.className = "btn btn-danger";
+                removeButton.textContent = "Remove";
+                removeButton.onclick = () => div.remove();
+    
+                div.appendChild(input);
+                div.appendChild(removeButton);
+                ingredientsSection.appendChild(div);
+            }
+    
+            // Обработчик для добавления нового поля ингредиента
+            addIngredientButton.addEventListener("click", () => addIngredientField());
+    
+            // Функция для получения списка ингредиентов
+            function getIngredients() {
+                const ingredients = [];
+                const inputs = ingredientsSection.querySelectorAll("input");
+                inputs.forEach(input => {
+                    if (input.value.trim() !== "") {
+                        ingredients.push(input.value.trim());
+                    }
+                });
+                return ingredients;
+            }
+    
+            // Обработчик отправки формы для меню
+            menuForm.addEventListener("submit", (event) => {
+                event.preventDefault();
+    
+                const menuItemId = document.getElementById("menuItemId").value;
+                const name = document.getElementById("menuName").value.trim();
+                const price = parseFloat(document.getElementById("menuPrice").value);
+                const ingredients = getIngredients();
+    
+                if (!name || isNaN(price) || price <= 0) {
+                    alert("Please fill in all required fields.");
+                    return;
+                }
+    
+                const menuData = {
+                    name: name,
+                    price: price,
+                    ingredients: ingredients
+                };
+    
+                const method = menuItemId ? "PUT" : "POST";
+                const url = menuItemId
+                    ? `/api/admin/menu/${menuItemId}`
+                    : "/api/admin/menu";
+    
+                fetch(url, {
+                    method: method,
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(menuData)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Error: ${response.statusText}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        alert("Menu item saved successfully!");
+                        menuForm.reset();
+                        ingredientsSection.innerHTML = "";
+                        fetchMenu(); // Re-fetch the menu list
+                        menuModal.hide();
+                    })
+                    .catch(err => {
+                        alert("Error saving menu item: " + err.message);
+                    });
+            });
+    
+            // Функция для получения меню с сервера
+            function fetchMenu() {
+                fetch("/api/admin/menu")
+                    .then(response => response.json())
+                    .then(menuItems => {
+                        menuTable.innerHTML = menuItems.length
+                            ? menuItems.map(item => `
+                                <tr>
+                                    <td>${item.id}</td>
+                                    <td>${item.name}</td>
+                                    <td>${item.price}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-warning" onclick="openMenuModal(${item.id}, '${item.name}', ${item.price}, ${JSON.stringify(item.ingredients)})">Edit</button>
+                                    </td>
+                                </tr>
+                            `).join("")
+                            : "<tr><td colspan='4'>No menu items found.</td></tr>";
+                    })
+                    .catch(err => alert("Error fetching menu items: " + err.message));
+            }
+    
+            // Функция для открытия модального окна для редактирования меню
+            window.openMenuModal = function (id, name, price, ingredients = []) {
+                document.getElementById("menuItemId").value = id;
+                document.getElementById("menuName").value = name;
+                document.getElementById("menuPrice").value = price;
+                ingredientsSection.innerHTML = "";
+                ingredients.forEach(ingredient => addIngredientField(ingredient));
+                menuModal.show();
+            };
+    
+            // Загружаем список пользователей
+            function fetchUsers() {
+                document.getElementById("loading-spinner").style.display = "block";
+                fetch("/api/admin/users")
+                    .then(response => response.json())
+                    .then(users => {
+                        userTable.innerHTML = users.map(user => `
+                            <tr>
+                                <td>${user.id}</td>
+                                <td>${user.name}</td>
+                                <td>${user.email}</td>
+                                <td>${user.role}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" onclick="openRoleModal(${user.id}, '${user.role}')">Change Role</button>
+                                </td>
+                            </tr>
+                        `).join("");
+                    })
+                    .catch(err => alert("Error fetching users: " + err.message))
+                    .finally(() => {
+                        document.getElementById("loading-spinner").style.display = "none";
+                    });
+            }
+    
+            // Функция для открытия модального окна для изменения роли
+            window.openRoleModal = function (userId, currentRole) {
+                document.getElementById("userId").value = userId;
+                document.getElementById("role").value = currentRole;
+                roleModal.show();
+            };
+    
+            // Обработчик для формы изменения роли
+            document.getElementById("roleForm").addEventListener("submit", (event) => {
+                event.preventDefault();
+    
+                const userId = document.getElementById("userId").value;
+                const role = document.getElementById("role").value;
+    
+                fetch(`/api/admin/users/${userId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ role })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert("User role updated successfully!");
+                        fetchUsers(); // Re-fetch the users list
+                        roleModal.hide();
+                    })
+                    .catch(err => alert("Error updating user role: " + err.message));
+            });
+    
+            // Загружаем пользователей и меню при загрузке страницы
+            fetchUsers();
+            fetchMenu();
+        });
+    </script>
+</body>
+</html>
