@@ -15,7 +15,7 @@ var DB *gorm.DB
 
 // ConnectDatabase initializes the database connection
 func ConnectDatabase() {
-	// Form the connection string with actual configuration values
+	// Формируем строку подключения с данными из конфигурации
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		config.AppConfig.DBHost,
 		config.AppConfig.DBUser,
@@ -29,16 +29,14 @@ func ConnectDatabase() {
 		log.Fatalf("failed to connect to the database: %v", err)
 	}
 
-	// Migrate the User table (without dropping it)
+	// Миграция таблиц (если нужно)
 	MigrateTables()
 
-	// Additional setup for DB (if needed)
 	log.Println("Successfully connected to the database")
 }
 
 // MigrateTables performs migrations for necessary tables
 func MigrateTables() {
-	// Migrate the schema to create the User table (if it doesn't exist or needs an update)
 	if err := DB.AutoMigrate(&models.User{}); err != nil {
 		log.Fatalf("Error creating User table: %v", err)
 	}

@@ -1,4 +1,3 @@
-// config/config.go
 package config
 
 import (
@@ -21,9 +20,9 @@ func LoadConfig() {
 	AppConfig = Config{
 		DBHost:     getEnv("DB_HOST", "localhost"),
 		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "admin"),
-		DBName:     getEnv("DB_NAME", "ozzcafe"),
+		DBUser:     getEnv("DB_USER", "ozzcafe_db_user"),
+		DBPassword: getEnv("DB_PASSWORD", "<password>"), // Вставь свой пароль
+		DBName:     getEnv("DB_NAME", "ozzcafe_db"),
 	}
 }
 
