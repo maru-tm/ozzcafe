@@ -18,10 +18,10 @@ var AppConfig Config
 // Загрузка конфигурации из переменных окружения
 func LoadConfig() {
 	AppConfig = Config{
-		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBHost:     getEnv("DB_HOST", "dpg-cud4d41opnds73apjm5g-a"),
 		DBPort:     getEnv("DB_PORT", "5432"),
 		DBUser:     getEnv("DB_USER", "ozzcafe_db_user"),
-		DBPassword: getEnv("DB_PASSWORD", "<password>"), // Вставь свой пароль
+		DBPassword: getEnv("DB_PASSWORD", "0HNE23daAshmR0QE4nM9fPPFpxdP0uBz"), // Вставь свой пароль
 		DBName:     getEnv("DB_NAME", "ozzcafe_db"),
 	}
 }
