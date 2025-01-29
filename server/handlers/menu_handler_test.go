@@ -33,7 +33,6 @@ func setupTestDB() (*gorm.DB, error) {
 func teardownTestDB(db *gorm.DB) {
 	db.Exec("DELETE FROM menu_items")
 }
-
 func TestCreateMenuItemHandlerIntegration(t *testing.T) {
 	// Настройка тестовой базы данных
 	db, err := setupTestDB()
@@ -43,7 +42,6 @@ func TestCreateMenuItemHandlerIntegration(t *testing.T) {
 	defer teardownTestDB(db)
 
 	menuDal := dal.NewMenuDAL(db)
-	// Создаем сервис с реальной базой данных
 	menuService := service.NewMenuService(menuDal)
 	menuHandler := NewMenuHandler(menuService)
 
@@ -52,7 +50,7 @@ func TestCreateMenuItemHandlerIntegration(t *testing.T) {
 		Name:        "Cappuccino",
 		Description: "Delicious coffee with foam",
 		Price:       3.0,
-		Ingredients: []string{"Espresso", "Milk", "Foam"},
+		Ingredients: []string{"Espresso", "Milk", "Foam"}, // Входные данные
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -63,28 +61,33 @@ func TestCreateMenuItemHandlerIntegration(t *testing.T) {
 		t.Fatalf("Error marshalling request body: %v", err)
 	}
 
-	// Создаем новый HTTP-запрос
+	// Создаем HTTP-запрос
 	req := httptest.NewRequest(http.MethodPost, "/menu-items", bytes.NewBuffer(requestBody))
 	w := httptest.NewRecorder()
 
 	// Вызов обработчика
 	menuHandler.CreateMenuItemHandler(w, req)
 
-	// Проверка, что статус ответа соответствует ожиданиям
+	// Проверка статуса ответа
 	assert.Equal(t, http.StatusCreated, w.Code)
 
-	// Проверка, что ответ содержит нужное сообщение
+	// Проверка содержимого ответа
 	expectedMessage := `{"message": "Menu item created successfully"}`
 	assert.JSONEq(t, expectedMessage, w.Body.String())
 
-	// Проверка, что меню действительно добавлено в базу данных
+	// Проверка, что блюдо добавлено в базу
 	var createdMenuItem models.MenuItem
 	if err := db.First(&createdMenuItem, "name = ?", "Cappuccino").Error; err != nil {
 		t.Fatalf("Failed to find the menu item in the database: %v", err)
 	}
 
-	// Проверка, что данные в базе соответствуют отправленным
+	// Проверка, что данные совпадают
 	assert.Equal(t, "Cappuccino", createdMenuItem.Name)
 	assert.Equal(t, 3.0, createdMenuItem.Price)
-	assert.Equal(t, []string{"Espresso", "Milk", "Foam"}, createdMenuItem.Ingredients)
+	assert.Equal(t, menuItem.Description, createdMenuItem.Description)
+
+	// Сравнение массива ингредиентов
+	expectedIngredients := []string{"Espresso", "Milk", "Foam"}
+	actualIngredients := []string(createdMenuItem.Ingredients) // Приводим pq.StringArray к []string
+	assert.Equal(t, expectedIngredients, actualIngredients)
 }

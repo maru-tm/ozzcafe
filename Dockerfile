@@ -1,5 +1,5 @@
 # Используем официальный образ Go для сборки приложения
-FROM golang:1.20 AS builder
+FROM golang:1.22-bullseye AS builder
 
 # Устанавливаем рабочую директорию внутри контейнера
 WORKDIR /app

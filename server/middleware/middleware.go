@@ -1,43 +1,92 @@
 package middleware
 
-// import (
-// 	"net/http"
-// 	"ozzcafe/server/service"
-// 	"strings"
+import (
+	"context"
+	"log"
+	"net/http"
+	"ozzcafe/server/models"
+	"ozzcafe/server/service"
+	"strings"
+)
 
-// 	"github.com/dgrijalva/jwt-go"
-// )
+type contextKey string
 
-// func AdminMiddleware(adminService *service.AdminService) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		tokenString := r.Header.Get("Authorization")
-// 		if tokenString == "" {
-// 			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
-// 			return
-// 		}
+const userKey contextKey = "user"
 
-// 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+// AuthMiddleware аутентифицирует пользователя, извлекая токен либо из заголовка Authorization,
+// либо из параметра URL "token".
+func AuthMiddleware(userService *service.UserService) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			// Проверка токена в параметре URL
+			token := r.URL.Query().Get("token")
+			if token == "" || !strings.HasPrefix(token, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.") {
+				log.Println("Invalid or missing token in URL")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 
-// 		claims := &jwt.StandardClaims{}
-// 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-// 			// Получите ваш секретный ключ из конфигурации
-// 			return []byte("your_secret_key"), nil
-// 		})
+			// Получаем пользователя по токену
+			user, err := userService.GetUserByToken(token)
+			if err != nil {
+				log.Printf("Error retrieving user by token: %v", err)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 
-// 		if err != nil || !token.Valid {
-// 			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
-// 			return
-// 		}
+			log.Printf("User authenticated: %v", user)
 
-// 		// Проверяем роль пользователя
-// 		userID := claims.Subject // обычно ID пользователя будет в subject
-// 		user, err := adminService.GetUserByID(userID)
-// 		if err != nil || user.Role != "admin" {
-// 			http.Error(w, "Forbidden", http.StatusForbidden)
-// 			return
-// 		}
+			// Добавляем пользователя в контекст запроса
+			ctx := context.WithValue(r.Context(), userKey, user)
+			r = r.WithContext(ctx)
 
-// 		// Если все проверки прошли, передаем управление следующему обработчику
-// 		next.ServeHTTP(w, r)
-// 	}
-// }
+			// Передаем управление следующему обработчику
+			next(w, r)
+		}
+	}
+}
+
+// AdminAuthMiddleware аутентифицирует администратора, проверяя роль пользователя.
+func AdminAuthMiddleware(userService *service.UserService) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			// Проверка токена в параметре URL
+			token := r.URL.Query().Get("token")
+			if token == "" || !strings.HasPrefix(token, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.") {
+				log.Println("Invalid or missing token in URL")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			// Получаем пользователя по токену
+			user, err := userService.GetUserByToken(token)
+			if err != nil {
+				log.Printf("Error retrieving user by token: %v", err)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			// Проверка роли пользователя на "admin"
+			if user.Role != "admin" {
+				log.Printf("Access denied: User %v does not have admin privileges", user.ID)
+				http.Error(w, "Forbidden: You do not have access", http.StatusForbidden)
+				return
+			}
+
+			log.Printf("Admin user authenticated: %v", user)
+
+			// Добавляем пользователя в контекст запроса
+			ctx := context.WithValue(r.Context(), userKey, user)
+			r = r.WithContext(ctx)
+
+			// Передаем управление следующему обработчику
+			next(w, r)
+		}
+	}
+}
+
+// GetUserFromContext извлекает пользователя из контекста запроса.
+func GetUserFromContext(r *http.Request) *models.User {
+	user, _ := r.Context().Value(userKey).(*models.User)
+	return user
+}

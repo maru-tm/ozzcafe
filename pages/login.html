@@ -43,46 +43,89 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('loginForm').addEventListener('submit', function(event) {
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
             event.preventDefault();
             
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
             const loginButton = document.querySelector('button[type="submit"]');
             const spinner = document.getElementById('loading-spinner');
             const errorMessage = document.getElementById('error-message');
-
+    
+            // Очистка предыдущих сообщений об ошибке
+            errorMessage.style.display = 'none';
+            errorMessage.textContent = '';
+    
+            // Проверка email-формата
+            if (!validateEmail(email)) {
+                showError('Invalid email format.');
+                return;
+            }
+    
+            // Очистка старого токена перед входом
+            sessionStorage.removeItem('token');
+    
             loginButton.disabled = true;
             spinner.style.display = 'block';
-
-            fetch('/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password })
-            })
-            .then(response => {
+    
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+    
                 if (!response.ok) {
-                    return response.json().then(data => {
-                        throw new Error(data.message || 'Login failed');
-                    });
+                    const data = await response.json();
+                    throw new Error(data.message || 'Invalid email or password');
                 }
-                return response.json();
-            })
-            .then(data => {
-                localStorage.setItem('token', data.token);
-                window.location.href = '/';
-            })
-            .catch(error => {
-                errorMessage.textContent = error.message;
-                errorMessage.style.display = 'block';
-            })
-            .finally(() => {
+    
+                const data = await response.json();
+                
+                if (!data.token) {
+                    throw new Error('Login successful, but no token received!');
+                }
+
+                // Сохранение токена
+                sessionStorage.setItem('token', data.token);
+
+                // Проверка роли и редирект
+                redirectToDashboard(data.role);
+            } catch (error) {
+                showError(error.message);
+            } finally {
                 loginButton.disabled = false;
                 spinner.style.display = 'none';
-            });
+            }
         });
+
+        function validateEmail(email) {
+            const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return regex.test(email);
+        }
+
+        function showError(message) {
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+        }
+ 
+        function redirectToDashboard(role) {
+            let targetUrl;
+            if (role === 'admin') {
+                targetUrl = '/admin';
+            } else if (role === 'user') {
+                targetUrl = '/profile';
+            } else {
+                showError('Unknown user role!');
+                return;
+            }
+
+            // Добавляем токен к URL (для безопасности)
+            window.location.href = `${targetUrl}?token=${sessionStorage.getItem('token')}`;
+        }
     </script>
 </body>
 </html>

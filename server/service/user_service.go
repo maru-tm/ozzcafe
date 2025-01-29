@@ -6,6 +6,7 @@ import (
 	"log"
 	"ozzcafe/server/dal"
 	"ozzcafe/server/models"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -175,4 +176,62 @@ func (s *UserService) LoginUser(email, password string) (string, error) {
 
 	log.Printf("User logged in successfully: %s, ID=%d\n", email, user.ID)
 	return tokenString, nil
+}
+
+// LogoutUser выполняет логику выхода пользователя
+func (s *UserService) LogoutUser(token string) error {
+	// Для упрощения просто логируем выход
+	// В реальном приложении можно добавить токен в "чёрный список" или выполнять дополнительные действия
+	log.Println("User logged out. Token invalidated:", token)
+	// Пример: сохранять отозванные токены в базе или кэш-системе
+	// err := s.TokenDAL.RevokeToken(token)
+	// if err != nil {
+	//     return fmt.Errorf("failed to revoke token: %w", err)
+	// }
+	return nil
+}
+
+// GetUserByToken извлекает пользователя из базы данных, основываясь на JWT токене
+func (s *UserService) GetUserByToken(tokenString string) (*models.User, error) {
+	// Если токен передан через URL параметр, то сразу используем его
+	if strings.HasPrefix(tokenString, "Bearer ") {
+		tokenString = tokenString[7:] // Удаляем "Bearer " из строки
+	}
+
+	// Разбираем токен
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Проверка метода подписи
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// Возвращаем ключ для проверки подписи
+		return []byte("secret_key"), nil
+	})
+	if err != nil || !token.Valid {
+		log.Println("Invalid token:", err)
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	// Извлекаем данные из токена
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		log.Println("Invalid token claims")
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	// Получаем userID из токена
+	userID, ok := claims["id"].(float64)
+	if !ok {
+		log.Println("User ID not found in token")
+		return nil, fmt.Errorf("user ID not found in token")
+	}
+
+	// Получаем пользователя по ID
+	user, err := s.UserDAL.GetByID(uint(userID))
+	if err != nil {
+		log.Println("User not found:", err)
+		return nil, fmt.Errorf("user not found")
+	}
+
+	return user, nil
 }
